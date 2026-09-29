@@ -1,84 +1,163 @@
 #define DMOD_ENABLE_REGISTRATION ON
-#include "dmod.h"
-#include "dmblkid.h"
+#include "dmblkid_internal.h"
+#include <string.h>
 
-/* Example internal state - replace with your module's real fields. */
-struct dmblkid
-{
-    bool valid;
-};
-
-dmod_dmblkid_api_declaration(1.0, dmblkid_t, _create, ( void ))
-{
-    /* Dmod_Malloc/Dmod_Free (SAL) are dmod's own heap functions - embedded
-     * targets don't necessarily link a libc allocator, so use these instead
-     * of malloc()/free() in module code. */
-    struct dmblkid *instance = Dmod_Malloc(sizeof(*instance));
-    if (instance == NULL)
-    {
-        return NULL;
-    }
-
-    instance->valid = true;
-    return instance;
-}
-
-dmod_dmblkid_api_declaration(1.0, void, _destroy, ( dmblkid_t handle ))
-{
-    Dmod_Free(handle);
-}
-
-dmod_dmblkid_api_declaration(1.0, bool, _is_valid, ( dmblkid_t handle ))
-{
-    return handle != NULL && handle->valid;
-}
-
-/**
- * @brief Pre-initialization function for the module.
- *
- * @note This function is optional. You can remove it if you don't need it.
- *
- * This function is called when the module enabling is in progress.
- *
- * You can use this function to load the required dependencies, such as
- * other modules. Please be aware that the module is not fully initialized,
- * so not all the API functions are available - you can check if the API
- * is connected by calling the Dmod_IsFunctionConnected() function.
+/*
+ * Probe order:
+ *  1. partition table - the same parser dmdevfs uses for partition nodes,
+ *     so a disk it splits is never reported as one filesystem; it does not
+ *     take FAT/exFAT boot sectors for an MBR,
+ *  2. FAT and exFAT - strong, fully validated boot sectors,
+ *  3. dmffs - no magic number, recognized by its TLV chain, so last.
+ * The first prober that recognizes the contents wins.
  */
-void dmod_preinit(void)
+
+static bool is_valid(const dmblkid_t* result)
 {
-    if(Dmod_IsFunctionConnected( Dmod_Printf ))
-    {
-        Dmod_Printf("API is connected!\n");
-    }
+    return result != NULL && result->magic == DMBLKID_MAGIC;
 }
 
-/**
- * @brief Initialization function for the module.
- *
- * This function is called when the module is enabled.
- * Please use this function to initialize the module, for instance:
- * - initialize the module variables
- * - initialize the module hardware
- * - allocate memory
- */
-int dmod_init(const Dmod_Config_t *Config)
+static dmblkid_t* create(void)
 {
-    Dmod_Printf("Hello, World!\n");
+    dmblkid_t* result = Dmod_Malloc(sizeof(*result));
+    if (result != NULL)
+    {
+        memset(result, 0, sizeof(*result));
+        result->magic = DMBLKID_MAGIC;
+        result->usage = dmblkid_usage_unknown;
+    }
+    return result;
+}
+
+static int run_probers(const dmblkid_source_t* source, dmblkid_t* result)
+{
+    int ret = dmblkid_probe_ptable(source, result);
+    if (ret == 0)
+    {
+        ret = dmblkid_probe_fat(source, result);
+    }
+    if (ret == 0)
+    {
+        ret = dmblkid_probe_exfat(source, result);
+    }
+    if (ret == 0)
+    {
+        ret = dmblkid_probe_dmffs(source, result);
+    }
+    return ret;
+}
+
+dmod_dmblkid_api_declaration(1.0, int, _probe, ( const char* node_path, dmblkid_t** result ))
+{
+    if (node_path == NULL || result == NULL)
+    {
+        return -EINVAL;
+    }
+    *result = NULL;
+    dmblkid_source_t source = { 0 };
+    int ret = dmblkid_source_open(&source, node_path);
+    if (ret != 0)
+    {
+        return ret;
+    }
+    /*
+     * No size: not a block device (a UART would block the first read) or an
+     * empty file - nothing to identify, nothing is read.
+     */
+    dmblkid_t* probe = create();
+    ret = (probe != NULL) ? 0 : -ENOMEM;
+    if (ret == 0 && source.size != 0)
+    {
+        ret = run_probers(&source, probe);
+    }
+    dmblkid_source_close(&source);
+    if (ret < 0)
+    {
+        dmblkid_destroy(probe);
+        return ret;
+    }
+    probe->size = source.size;
+    *result = probe;
     return 0;
 }
 
-/**
- * @brief De-initialization function for the module.
- *
- * This function is called when the module is disabled.
- * Please use this function to de-initialize the module, for instance:
- * - free memory
- * - de-initialize the module hardware
- * - de-initialize the module variables
- */
+dmod_dmblkid_api_declaration(1.0, void, _destroy, ( dmblkid_t* result ))
+{
+    if (!is_valid(result))
+    {
+        return;
+    }
+    Dmod_Free(result->version);
+    Dmod_Free(result->label);
+    Dmod_Free(result->uuid);
+    result->magic = 0;
+    Dmod_Free(result);
+}
+
+dmod_dmblkid_api_declaration(1.0, dmblkid_usage_t, _get_usage, ( const dmblkid_t* result ))
+{
+    return is_valid(result) ? result->usage : dmblkid_usage_unknown;
+}
+
+dmod_dmblkid_api_declaration(1.0, const char*, _get_type, ( const dmblkid_t* result ))
+{
+    return is_valid(result) ? result->type : NULL;
+}
+
+dmod_dmblkid_api_declaration(1.0, const char*, _get_version, ( const dmblkid_t* result ))
+{
+    return is_valid(result) ? result->version : NULL;
+}
+
+dmod_dmblkid_api_declaration(1.0, const char*, _get_label, ( const dmblkid_t* result ))
+{
+    return is_valid(result) ? result->label : NULL;
+}
+
+dmod_dmblkid_api_declaration(1.0, const char*, _get_uuid, ( const dmblkid_t* result ))
+{
+    return is_valid(result) ? result->uuid : NULL;
+}
+
+dmod_dmblkid_api_declaration(1.0, const char*, _get_module, ( const dmblkid_t* result ))
+{
+    return is_valid(result) ? result->module : NULL;
+}
+
+dmod_dmblkid_api_declaration(1.0, bool, _is_mountable, ( const dmblkid_t* result ))
+{
+    return is_valid(result) && result->mountable;
+}
+
+dmod_dmblkid_api_declaration(1.0, uint64_t, _get_size, ( const dmblkid_t* result ))
+{
+    return is_valid(result) ? result->size : 0;
+}
+
+dmod_dmblkid_api_declaration(1.0, uint32_t, _get_block_size, ( const dmblkid_t* result ))
+{
+    return is_valid(result) ? result->block_size : 0;
+}
+
+dmod_dmblkid_api_declaration(1.0, uint32_t, _get_partition_count, ( const dmblkid_t* result ))
+{
+    return is_valid(result) ? result->partition_count : 0;
+}
+
+dmod_dmblkid_api_declaration(1.0, dmblkid_ptable_t, _partitions_scan, ( dmblkid_part_read_t read, void* read_ctx,
+                                                                         uint32_t block_size, uint64_t block_count,
+                                                                         dmblkid_part_found_t found, void* found_ctx ))
+{
+    return dmblkid_ptable_scan(read, read_ctx, block_size, block_count, found, found_ctx);
+}
+
+int dmod_init(const Dmod_Config_t *Config)
+{
+    (void)Config;
+    return 0;
+}
+
 int dmod_deinit(void)
 {
-    Dmod_Printf("Goodbye, World!\n");
     return 0;
 }

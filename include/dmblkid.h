@@ -8,44 +8,137 @@
 #include "dmblkid_defs.h"
 
 /**
- * Public API for the dmblkid module.
+ * dmblkid - identifies what a block device or partition contains.
  *
- * Functions are declared with the dmod_dmblkid_api(...) macro - dmod's
- * standard pattern for functions callable from other modules (or from this
- * module's own tests/), resolved dynamically by the loader rather than
- * through normal static linkage. See dm_sw_ring/include/dm_sw_ring.h for a
- * fully worked real-world example of the same shape.
+ * dmblkid_probe() reads a node (e.g. /dev/dmsdio0/0 or /dev/dmsdio0/0p1)
+ * through the regular file API with 64-bit offsets and reports:
+ *  - a partition table (MBR/GPT), so a whole disk with partitions is never
+ *    mounted, or
+ *  - a filesystem (FAT12/16/32, exFAT, dmffs) with its label, uuid and the
+ *    DMOD filesystem module that mounts it, or
+ *  - nothing recognized (blank or damaged medium, unsupported format).
  *
- * Definitions in src/dmblkid.c use the matching
- * dmod_dmblkid_api_declaration(...) macro - a plain C function
- * definition here will NOT satisfy these declarations at link time.
- *
- * This is an example interface using the usual "opaque handle" pattern -
- * replace the handle, functions, and struct definition in
- * src/dmblkid.c with your module's real API.
+ * Probing only ever reads: the node is opened read-only.
  */
 
-/* Opaque handle - the real struct is defined in src/dmblkid.c */
-typedef struct dmblkid* dmblkid_t;
+/** Opaque probe result - see dmblkid_probe(). */
+typedef struct dmblkid dmblkid_t;
+
+/** What was found on the node. */
+typedef enum
+{
+    dmblkid_usage_unknown = 0,          /**< Nothing recognized (blank, damaged or unsupported) */
+    dmblkid_usage_filesystem,           /**< A filesystem - see dmblkid_get_type() */
+    dmblkid_usage_partition_table,      /**< An MBR or GPT - the partitions are separate nodes */
+} dmblkid_usage_t;
+
+/** Kind of partition table, as returned by dmblkid_partitions_scan(). */
+typedef enum
+{
+    dmblkid_ptable_none = 0,            /**< No (valid) table - e.g. a superfloppy or a blank medium */
+    dmblkid_ptable_mbr,                 /**< MBR, possibly with an extended partition */
+    dmblkid_ptable_gpt,                 /**< GPT (primary or backup header) */
+} dmblkid_ptable_t;
 
 /**
- * Create a new dmblkid instance.
- *
- * @return A valid handle on success, or NULL on allocation failure.
+ * @brief Read exactly @p size bytes at byte @p offset of the medium
+ * @return 0 on success, a negative value if the read failed or was short
  */
-dmod_dmblkid_api(1.0, dmblkid_t, _create, ( void ));
+typedef int (*dmblkid_part_read_t)(void* ctx, uint64_t offset, void* buffer, size_t size);
 
 /**
- * Destroy an instance created by dmblkid_create(). Safe to call with
- * NULL.
+ * @brief Called for every partition found by dmblkid_partitions_scan()
+ *
+ * @param number    Partition number: MBR primaries 1-4 by slot, logical
+ *                  partitions from 5 in chain order; GPT entry index + 1.
+ * @param first_lba First block of the partition.
+ * @param lba_count Number of blocks.
+ * @return false to stop the scan.
  */
-dmod_dmblkid_api(1.0, void, _destroy, ( dmblkid_t handle ));
+typedef bool (*dmblkid_part_found_t)(void* ctx, uint32_t number, uint64_t first_lba, uint64_t lba_count);
 
 /**
- * Example accessor - replace with your module's real API.
+ * @brief Identify the contents of a node
  *
- * @return true if handle is a valid, non-NULL instance.
+ * The geometry comes from DMDRVI_IOCTL_BLOCK_GET_INFO when the node answers
+ * it (dmdevfs block and partition nodes), otherwise from the file size with
+ * 512-byte blocks (4096/2048/1024 if a GPT header is found there) - so
+ * image files can be probed too. A node without a size (not a block device,
+ * an empty file) is reported as unknown without being read.
+ *
+ * @param node_path Path of the node or image file.
+ * @param result    Set to the result on success; release it with dmblkid_destroy().
+ * @return 0 on success - also when nothing was recognized (see
+ *         dmblkid_get_usage()); -EINVAL on bad arguments, -ENOENT if the
+ *         node cannot be opened, -EIO if reading it failed, -ENOMEM.
  */
-dmod_dmblkid_api(1.0, bool, _is_valid, ( dmblkid_t handle ));
+dmod_dmblkid_api(1.0, int, _probe, ( const char* node_path, dmblkid_t** result ));
+
+/**
+ * @brief Release a result of dmblkid_probe(). Safe to call with NULL.
+ */
+dmod_dmblkid_api(1.0, void, _destroy, ( dmblkid_t* result ));
+
+/** @return What was found, dmblkid_usage_unknown for an invalid result. */
+dmod_dmblkid_api(1.0, dmblkid_usage_t, _get_usage, ( const dmblkid_t* result ));
+
+/**
+ * @return "vfat", "exfat" or "dmffs" for a filesystem, "mbr" or "gpt" for a
+ *         partition table, NULL if nothing was recognized.
+ */
+dmod_dmblkid_api(1.0, const char*, _get_type, ( const dmblkid_t* result ));
+
+/** @return Format version ("FAT12"/"FAT16"/"FAT32", exFAT "1.0", dmffs VERSION), or NULL. */
+dmod_dmblkid_api(1.0, const char*, _get_version, ( const dmblkid_t* result ));
+
+/** @return Volume label, or NULL if the filesystem has none. */
+dmod_dmblkid_api(1.0, const char*, _get_label, ( const dmblkid_t* result ));
+
+/**
+ * @return Filesystem serial ("ABCD-1234" for FAT/exFAT), MBR disk signature
+ *         ("1a2b3c4d") or GPT disk GUID, or NULL if there is none.
+ */
+dmod_dmblkid_api(1.0, const char*, _get_uuid, ( const dmblkid_t* result ));
+
+/**
+ * @return Name of the DMOD filesystem module that handles this format, or
+ *         NULL if the ecosystem has none (FAT, exFAT today).
+ */
+dmod_dmblkid_api(1.0, const char*, _get_module, ( const dmblkid_t* result ));
+
+/**
+ * @return true if dmblkid_get_module() can mount the node itself. False for
+ *         partition tables, unknown contents, formats without a module and
+ *         dmffs (it mounts memory-mapped flash, not a node).
+ */
+dmod_dmblkid_api(1.0, bool, _is_mountable, ( const dmblkid_t* result ));
+
+/** @return Size of the node in bytes, 0 if unknown. */
+dmod_dmblkid_api(1.0, uint64_t, _get_size, ( const dmblkid_t* result ));
+
+/** @return Logical block size the partition table was read with, 0 if unknown. */
+dmod_dmblkid_api(1.0, uint32_t, _get_block_size, ( const dmblkid_t* result ));
+
+/** @return Number of partitions in the table (partition tables only). */
+dmod_dmblkid_api(1.0, uint32_t, _get_partition_count, ( const dmblkid_t* result ));
+
+/**
+ * @brief Find the partitions of a medium
+ *
+ * The MBR/GPT parser dmblkid_probe() uses, for callers that access the
+ * medium in their own way (e.g. a filesystem exposing partition nodes). A
+ * sector that is a FAT or exFAT boot sector is not taken for an MBR.
+ *
+ * @param read        Medium access.
+ * @param read_ctx    Passed to @p read.
+ * @param block_size  Logical block size in bytes (512, 1024, 2048 or 4096).
+ * @param block_count Number of logical blocks of the medium.
+ * @param found       Called for every partition, in table order (may be NULL).
+ * @param found_ctx   Passed to @p found.
+ * @return The kind of table the partitions were found in.
+ */
+dmod_dmblkid_api(1.0, dmblkid_ptable_t, _partitions_scan, ( dmblkid_part_read_t read, void* read_ctx,
+                                                             uint32_t block_size, uint64_t block_count,
+                                                             dmblkid_part_found_t found, void* found_ctx ));
 
 #endif // DMBLKID_H

@@ -1,11 +1,12 @@
 set(DMOD_MODULE_NAME        test_dmblkid)
 set(DMOD_MODULE_VERSION     ${PROJECT_VERSION})
 set(DMOD_AUTHOR_NAME        "Patryk Kubiak")
-set(DMOD_STACK_SIZE         1024)
+set(DMOD_STACK_SIZE         4096)
 set(DMOD_PRIORITY           0)
 
 dmod_add_test(${DMOD_MODULE_NAME} ${DMOD_MODULE_VERSION}
     dmblkid_test.c
+    test_images.c
 )
 
 target_include_directories(${DMOD_MODULE_NAME} PRIVATE
