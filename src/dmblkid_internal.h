@@ -54,10 +54,6 @@ int dmblkid_probe_fat(const dmblkid_source_t* source, dmblkid_t* result);
 int dmblkid_probe_exfat(const dmblkid_source_t* source, dmblkid_t* result);
 int dmblkid_probe_dmffs(const dmblkid_source_t* source, dmblkid_t* result);
 
-/** dmblkid_partitions_scan() - see dmblkid.h. */
-dmblkid_ptable_t dmblkid_ptable_scan(dmblkid_part_read_t read, void* read_ctx, uint32_t block_size,
-                                     uint64_t block_count, dmblkid_part_found_t found, void* found_ctx);
-
 /* ---- source access (dmblkid_source.c) ---- */
 
 int  dmblkid_source_open(dmblkid_source_t* source, const char* path);

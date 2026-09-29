@@ -32,31 +32,6 @@ typedef enum
     dmblkid_usage_partition_table,      /**< An MBR or GPT - the partitions are separate nodes */
 } dmblkid_usage_t;
 
-/** Kind of partition table, as returned by dmblkid_partitions_scan(). */
-typedef enum
-{
-    dmblkid_ptable_none = 0,            /**< No (valid) table - e.g. a superfloppy or a blank medium */
-    dmblkid_ptable_mbr,                 /**< MBR, possibly with an extended partition */
-    dmblkid_ptable_gpt,                 /**< GPT (primary or backup header) */
-} dmblkid_ptable_t;
-
-/**
- * @brief Read exactly @p size bytes at byte @p offset of the medium
- * @return 0 on success, a negative value if the read failed or was short
- */
-typedef int (*dmblkid_part_read_t)(void* ctx, uint64_t offset, void* buffer, size_t size);
-
-/**
- * @brief Called for every partition found by dmblkid_partitions_scan()
- *
- * @param number    Partition number: MBR primaries 1-4 by slot, logical
- *                  partitions from 5 in chain order; GPT entry index + 1.
- * @param first_lba First block of the partition.
- * @param lba_count Number of blocks.
- * @return false to stop the scan.
- */
-typedef bool (*dmblkid_part_found_t)(void* ctx, uint32_t number, uint64_t first_lba, uint64_t lba_count);
-
 /**
  * @brief Identify the contents of a node
  *
@@ -121,24 +96,5 @@ dmod_dmblkid_api(1.0, uint32_t, _get_block_size, ( const dmblkid_t* result ));
 
 /** @return Number of partitions in the table (partition tables only). */
 dmod_dmblkid_api(1.0, uint32_t, _get_partition_count, ( const dmblkid_t* result ));
-
-/**
- * @brief Find the partitions of a medium
- *
- * The MBR/GPT parser dmblkid_probe() uses, for callers that access the
- * medium in their own way (e.g. a filesystem exposing partition nodes). A
- * sector that is a FAT or exFAT boot sector is not taken for an MBR.
- *
- * @param read        Medium access.
- * @param read_ctx    Passed to @p read.
- * @param block_size  Logical block size in bytes (512, 1024, 2048 or 4096).
- * @param block_count Number of logical blocks of the medium.
- * @param found       Called for every partition, in table order (may be NULL).
- * @param found_ctx   Passed to @p found.
- * @return The kind of table the partitions were found in.
- */
-dmod_dmblkid_api(1.0, dmblkid_ptable_t, _partitions_scan, ( dmblkid_part_read_t read, void* read_ctx,
-                                                             uint32_t block_size, uint64_t block_count,
-                                                             dmblkid_part_found_t found, void* found_ctx ));
 
 #endif // DMBLKID_H

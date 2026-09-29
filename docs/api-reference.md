@@ -21,30 +21,6 @@ otherwise.
 | `dmblkid_usage_filesystem` | A filesystem. |
 | `dmblkid_usage_partition_table` | An MBR or GPT. Its partitions are separate nodes (dmdevfs `<node>p<N>`); the whole node must not be mounted. |
 
-### `dmblkid_ptable_t`
-
-`dmblkid_ptable_none`, `dmblkid_ptable_mbr`, `dmblkid_ptable_gpt` - returned
-by `dmblkid_partitions_scan()`.
-
-### `dmblkid_part_read_t`
-
-```c
-typedef int (*dmblkid_part_read_t)(void* ctx, uint64_t offset, void* buffer, size_t size);
-```
-
-Reads exactly `size` bytes at byte `offset`; returns 0, or a negative value
-if the read failed or was short.
-
-### `dmblkid_part_found_t`
-
-```c
-typedef bool (*dmblkid_part_found_t)(void* ctx, uint32_t number, uint64_t first_lba, uint64_t lba_count);
-```
-
-Called for every partition. `number`: MBR primaries 1-4 by slot, logical
-partitions from 5 in chain order, GPT entry index + 1. Return `false` to stop
-the scan.
-
 ## Functions
 
 ### `dmblkid_probe`
@@ -187,23 +163,7 @@ uint32_t dmblkid_get_partition_count(const dmblkid_t* result);
 The number of partitions in the table. The extended partition container of
 an MBR is not counted; its logical partitions are.
 
-### `dmblkid_partitions_scan`
+## Partition tables
 
-```c
-dmblkid_ptable_t dmblkid_partitions_scan(dmblkid_part_read_t read, void* read_ctx,
-                                         uint32_t block_size, uint64_t block_count,
-                                         dmblkid_part_found_t found, void* found_ctx);
-```
-
-The MBR/GPT parser `dmblkid_probe()` uses, for callers that access the
-medium in their own way. `block_size` must be 512, 1024, 2048 or 4096, and
-`block_count` at least 2. `found` may be `NULL`.
-
-- **MBR**: signature, sane status bytes, at least one used entry, and all
-  entries inside the medium. Extended partitions are followed through their
-  EBR chain (at most 64 logical partitions; loops and entries outside the
-  extended partition are ignored). A FAT/exFAT boot sector is never taken
-  for an MBR.
-- **GPT**: a protective MBR (type `0xEE`), then the primary header at LBA 1,
-  or the backup header at the last LBA if the primary header or its entry
-  array fails its CRC32. Entries outside the usable range are skipped.
+The MBR/GPT parser is the separate `dmpart` library module
+(`libs/dmpart`, `dmpart_scan()`), shared with dmdevfs - see its README.

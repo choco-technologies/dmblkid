@@ -37,9 +37,10 @@ Detection is strict, so that nothing is mounted by mistake:
   the Microsoft specification.
 - **exFAT** - boot sector fields, region layout and the boot region checksum.
 - **dmffs** - no magic number: the top-level TLV chain must be well formed.
-- **MBR/GPT** - the same parser dmdevfs uses to create partition nodes, so a
-  disk dmdevfs splits into partitions is always reported as a partition
-  table. A FAT/exFAT boot sector (a partitionless "superfloppy") is never
+- **MBR/GPT** - [dmpart](libs/dmpart/README.md), the partition table
+  parser library of this repository, which dmdevfs uses to create partition
+  nodes too: a disk dmdevfs splits into partitions is always reported as a
+  partition table. A FAT/exFAT boot sector (a partitionless "superfloppy") is never
   taken for an MBR, even if its boot code looks like partition entries. GPT
   headers and entry arrays are CRC-checked; the backup header is used if the
   primary one is damaged.
@@ -74,7 +75,7 @@ The command line front end:
 /dev/dmsdio0/0p1: TYPE="vfat" VERSION="FAT32" LABEL="SDCARD" UUID="CAFE-BABE" SIZE="15930490880" MOUNTABLE="no"
 ```
 
-See [apps/blkid/README.md](apps/blkid/README.md).
+See [services/blkid/README.md](services/blkid/README.md).
 
 ## API
 
@@ -92,7 +93,9 @@ See [apps/blkid/README.md](apps/blkid/README.md).
 | `dmblkid_get_size()` | Node size in bytes. |
 | `dmblkid_get_block_size()` | Block size the partition table was read with. |
 | `dmblkid_get_partition_count()` | Number of partitions in the table. |
-| `dmblkid_partitions_scan()` | The MBR/GPT parser on its own, over a caller-supplied read function. |
+
+The MBR/GPT parser itself is the separate [dmpart](libs/dmpart/README.md)
+library module (`dmpart_scan()`), built and released with dmblkid.
 
 See [include/dmblkid.h](include/dmblkid.h) and
 [docs/api-reference.md](docs/api-reference.md).
@@ -145,6 +148,9 @@ cmake --build /tmp/dmod/build --target dmod_loader
 export DMOD_DMF_DIR=$(pwd)/build/dmf
 dmf-get install -d ${DMOD_DMF_DIR}/test_dmblkid-local.dmd -y
 /tmp/dmod/build/examples/system/dmod_loader/dmod_loader build/dmf/test_dmblkid.dmf
+
+dmf-get install -d ${DMOD_DMF_DIR}/test_dmpart-local.dmd -y
+/tmp/dmod/build/examples/system/dmod_loader/dmod_loader build/dmf/test_dmpart.dmf
 ```
 
 `ctest` runs the same; point it to that loader with
@@ -162,17 +168,19 @@ View documentation using `dmf-man dmblkid`.
 
 ```
 dmblkid/
-├── apps/
-│   └── blkid/             # blkid command line application
 ├── docs/                  # Documentation (markdown format)
 ├── include/
 │   └── dmblkid.h          # Public API
+├── libs/
+│   └── dmpart/            # dmpart - MBR/GPT parser library (also used by dmdevfs)
+├── services/
+│   └── blkid/             # blkid command line application
 ├── src/
 │   ├── dmblkid.c          # dmblkid_probe(), result accessors
 │   ├── dmblkid_internal.h
 │   ├── dmblkid_source.c   # Node access (file API, geometry)
 │   ├── dmblkid_util.c     # Result/string helpers
-│   ├── dmblkid_ptable.c   # MBR/GPT
+│   ├── dmblkid_ptable.c   # Partition tables (through dmpart)
 │   ├── dmblkid_fat.c      # FAT12/16/32
 │   ├── dmblkid_exfat.c    # exFAT
 │   └── dmblkid_dmffs.c    # dmffs

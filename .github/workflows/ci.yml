@@ -34,6 +34,8 @@ jobs:
           test -f build/dmf/dmblkid_version.txt
           test -f build/dmf/test_dmblkid.dmf
           test -f build/dmf/blkid.dmf
+          test -f build/dmf/dmpart.dmf
+          test -f build/dmf/test_dmpart.dmf
           echo "Module files present"
 
       # dmblkid uses the 64-bit file API (Dmod_FileSeek/_FileTell/_FileSize
@@ -51,6 +53,8 @@ jobs:
       - name: Run tests with dmod_loader
         run: |
           export DMOD_DMF_DIR=$(pwd)/build/dmf
+          dmf-get install -d ${DMOD_DMF_DIR}/test_dmpart-local.dmd -y
+          ${DMOD_LOADER} build/dmf/test_dmpart.dmf
           dmf-get install -d ${DMOD_DMF_DIR}/test_dmblkid-local.dmd -y
           ${DMOD_LOADER} build/dmf/test_dmblkid.dmf
 
@@ -69,7 +73,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build dmblkid and blkid
+      - name: Build dmblkid, dmpart and blkid
         run: |
           mkdir -p build
           cd build
@@ -82,3 +86,4 @@ jobs:
           fi
           test -f dmf/dmblkid.dmf
           test -f dmf/blkid.dmf
+          test -f dmf/dmpart.dmf

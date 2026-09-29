@@ -10,11 +10,11 @@ version=./${module}_version.txt => ${destination}/${module}_version.txt [origin=
 # === Documentation ===
 # NOTE: ${repo_dir} is the top-level repo root (blkid is built through
 # add_subdirectory() from dmblkid's CMakeLists.txt), so paths are relative to
-# the repo root, not to apps/blkid.
-readme=./README.md => ${destination}/${module}/README.md [origin=${repo_dir}/apps/blkid/README.md]
+# the repo root, not to services/blkid.
+readme=./README.md => ${destination}/${module}/README.md [origin=${repo_dir}/services/blkid/README.md]
 
 # === License ===
 license=./LICENSE => ${destination}/${module}/LICENSE [origin=${repo_dir}/LICENSE]
 
 # Adding itself
-dmr=./${module}.dmr => ${destination}/${module}/${module}.dmr [origin=${repo_dir}/apps/blkid/${module}.dmr]
+dmr=./${module}.dmr => ${destination}/${module}/${module}.dmr [origin=${repo_dir}/services/blkid/${module}.dmr]

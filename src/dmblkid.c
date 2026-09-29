@@ -4,9 +4,9 @@
 
 /*
  * Probe order:
- *  1. partition table - the same parser dmdevfs uses for partition nodes,
- *     so a disk it splits is never reported as one filesystem; it does not
- *     take FAT/exFAT boot sectors for an MBR,
+ *  1. partition table - dmpart, the parser dmdevfs uses for partition
+ *     nodes, so a disk it splits is never reported as one filesystem; it
+ *     does not take FAT/exFAT boot sectors for an MBR,
  *  2. FAT and exFAT - strong, fully validated boot sectors,
  *  3. dmffs - no magic number, recognized by its TLV chain, so last.
  * The first prober that recognizes the contents wins.
@@ -142,13 +142,6 @@ dmod_dmblkid_api_declaration(1.0, uint32_t, _get_block_size, ( const dmblkid_t* 
 dmod_dmblkid_api_declaration(1.0, uint32_t, _get_partition_count, ( const dmblkid_t* result ))
 {
     return is_valid(result) ? result->partition_count : 0;
-}
-
-dmod_dmblkid_api_declaration(1.0, dmblkid_ptable_t, _partitions_scan, ( dmblkid_part_read_t read, void* read_ctx,
-                                                                         uint32_t block_size, uint64_t block_count,
-                                                                         dmblkid_part_found_t found, void* found_ctx ))
-{
-    return dmblkid_ptable_scan(read, read_ctx, block_size, block_count, found, found_ctx);
 }
 
 int dmod_init(const Dmod_Config_t *Config)

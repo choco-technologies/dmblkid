@@ -31,7 +31,7 @@ DMOD_CSOURCES=src/dmblkid.c src/dmblkid_source.c src/dmblkid_util.c src/dmblkid_
 DMOD_CXXSOURCES=
 
 # The list of include directories
-DMOD_INC_DIRS=include
+DMOD_INC_DIRS=include libs/dmpart/include
 
 # The list of libraries to link
 DMOD_LIBS=

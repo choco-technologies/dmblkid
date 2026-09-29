@@ -82,8 +82,14 @@ dmod_link_modules(${DMOD_MODULE_NAME}
     dmdrvi@>=2.0
 )
 
+# dmpart - the partition table parser, a separate library module of this
+# repository (dmdevfs uses it too). Local sibling: its headers come from its
+# _if target rather than a dmod_link_modules() fetch.
+target_link_libraries(${DMOD_MODULE_NAME} dmpart_if)
+add_subdirectory(libs/dmpart)
+
 # blkid - command line front end
-add_subdirectory(apps/blkid)
+add_subdirectory(services/blkid)
 
 enable_testing()
 add_subdirectory(tests)
