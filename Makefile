@@ -1,6 +1,6 @@
 # #############################################################################
-# 
-# 	This is an example of a simple library module.
+#
+# 	dmblkid - block device content probing library.
 #
 # #############################################################################
 DMOD_DIR=@DMOD_DIR@
@@ -24,13 +24,14 @@ DMOD_MODULE_VERSION=0.1
 DMOD_AUTHOR_NAME=Patryk Kubiak
 
 # The list of C sources
-DMOD_CSOURCES=src/dmblkid.c
+DMOD_CSOURCES=src/dmblkid.c src/dmblkid_source.c src/dmblkid_util.c src/dmblkid_ptable.c \
+	src/dmblkid_fat.c src/dmblkid_exfat.c src/dmblkid_dmffs.c
 
 # The list of C++ sources
 DMOD_CXXSOURCES=
 
 # The list of include directories
-DMOD_INC_DIRS=include
+DMOD_INC_DIRS=include libs/dmpart/include
 
 # The list of libraries to link
 DMOD_LIBS=

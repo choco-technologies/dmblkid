@@ -27,7 +27,7 @@ set(DMOD_BUILD_TEMPLATES OFF CACHE BOOL "Build templates")
 FetchContent_MakeAvailable(dmod)
 
 project(dmblkid VERSION ${DMOD_MODULE_VERSION}
-    DESCRIPTION "dmblkid DMOD library module"
+    DESCRIPTION "Block device content (filesystem / partition table) probing"
     LANGUAGES C CXX)
 
 set(DMOD_DIR ${dmod_SOURCE_DIR} CACHE PATH "DMOD source directory")
@@ -60,8 +60,13 @@ set(DMOD_DIF_IMPLS          )
 #   (for example, to link libraries)
 #
 dmod_add_library(${DMOD_MODULE_NAME} ${DMOD_MODULE_VERSION}
-    # List of source files - can include C and C++ files
     src/dmblkid.c
+    src/dmblkid_source.c
+    src/dmblkid_util.c
+    src/dmblkid_ptable.c
+    src/dmblkid_fat.c
+    src/dmblkid_exfat.c
+    src/dmblkid_dmffs.c
 )
 
 target_include_directories(${DMOD_MODULE_NAME} PRIVATE
@@ -72,9 +77,19 @@ target_include_directories(${DMOD_MODULE_NAME}_if INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# To depend on another module's headers, use:
-#   dmod_link_modules(${DMOD_MODULE_NAME}
-#       other_module@1.0
-#   )
+# dmdrvi: DMDRVI_IOCTL_BLOCK_GET_INFO, the geometry of dmdevfs block nodes
+dmod_link_modules(${DMOD_MODULE_NAME}
+    dmdrvi@>=2.0
+)
+
+# dmpart - the partition table parser, a separate library module of this
+# repository (dmdevfs uses it too). Local sibling: its headers come from its
+# _if target rather than a dmod_link_modules() fetch.
+target_link_libraries(${DMOD_MODULE_NAME} dmpart_if)
+add_subdirectory(libs/dmpart)
+
+# blkid - command line front end
+add_subdirectory(services/blkid)
+
 enable_testing()
 add_subdirectory(tests)

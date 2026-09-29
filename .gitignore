@@ -10,6 +10,7 @@ build/
 .idea/
 
 # Temporary files
+dmblkid_test.img
 *.tmp
 *.swp
 *~
