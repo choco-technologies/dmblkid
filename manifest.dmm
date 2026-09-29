@@ -1,0 +1,5 @@
+# Include dynamically generated versions list from latest release
+$include https://github.com/choco-technologies/dmblkid/releases/download/vlatest/versions.dmm
+
+# Module entry with version placeholder - expanded by $version-available
+dmblkid https://github.com/choco-technologies/dmblkid/releases/download/v<version>/dmblkid-v<version>-<arch_name>.zip
