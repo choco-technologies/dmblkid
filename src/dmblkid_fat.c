@@ -166,7 +166,7 @@ static int fat_describe(const dmblkid_source_t* source, const uint8_t* s, const 
                         dmblkid_t* result)
 {
     /* No DMOD filesystem module mounts FAT yet. */
-    dmblkid_set_filesystem(result, "vfat", NULL, false);
+    dmblkid_set_filesystem(result, "vfat", "dmfatfs", true);
     const char* version = (g->bits == 12u) ? "FAT12" : (g->bits == 16u) ? "FAT16" : "FAT32";
     int ret = dmblkid_set_string(&result->version, version);
     int found = (ret < 0) ? ret : fat_find_root_label(source, g, &result->label);

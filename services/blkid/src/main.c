@@ -6,7 +6,7 @@
  * blkid <node>... - print what dmblkid finds on each node, one line per node:
  *
  *   /dev/dmsdio0/0: PTTYPE="mbr" PTUUID="1a2b3c4d" PARTITIONS="2" SIZE="15931539456"
- *   /dev/dmsdio0/0p1: TYPE="vfat" VERSION="FAT32" LABEL="BOOT" UUID="1234-ABCD" SIZE="268435456" MOUNTABLE="no"
+ *   /dev/dmsdio0/0p1: TYPE="vfat" VERSION="FAT32" LABEL="BOOT" UUID="1234-ABCD" SIZE="268435456" MODULE="dmfatfs" MOUNTABLE="yes"
  *   /dev/dmsdio0/0p2: SIZE="15662055424"
  *
  * Nodes are never listed automatically: reading a character device (a UART)

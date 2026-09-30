@@ -1,0 +1,11 @@
+; automount.rules - libsystemd device rule.
+;
+; dmdevfs reports every block node - whole media and their partitions -
+; under class "block", named after the node path ("/dmsdio0/0p1" ->
+; "dmsdio0_0p1"), with the node's absolute path as the user value. Start one
+; automount@<name> instance for each, instantiated on demand from
+; automount@.ini; the removal of the node stops it (and unmounts it) again.
+;
+; Load with libsystemd_load_rules() on the directory this file lives in.
+[class=block]
+start=automount@%name

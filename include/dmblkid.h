@@ -76,8 +76,8 @@ dmod_dmblkid_api(1.0, const char*, _get_label, ( const dmblkid_t* result ));
 dmod_dmblkid_api(1.0, const char*, _get_uuid, ( const dmblkid_t* result ));
 
 /**
- * @return Name of the DMOD filesystem module that handles this format, or
- *         NULL if the ecosystem has none (FAT, exFAT today).
+ * @return Name of the DMOD filesystem module that handles this format
+ *         ("dmfatfs" for FAT/exFAT, "dmffs"), or NULL if there is none.
  */
 dmod_dmblkid_api(1.0, const char*, _get_module, ( const dmblkid_t* result ));
 

@@ -24,9 +24,10 @@ prints it.
 | blank, damaged or unsupported | `unknown` | - | size |
 
 Every type is mapped to the DMOD filesystem module that handles it and
-whether that module can mount the node. Today none can: FAT and exFAT have
-no module yet, and dmffs mounts memory-mapped flash rather than a node - so
-they are reported, but marked not mountable.
+whether that module can mount the node: FAT and exFAT are mounted by
+[dmfatfs](https://github.com/choco-technologies/dmfatfs) from the node
+itself; dmffs is reported, but marked not mountable - it mounts
+memory-mapped flash rather than a node.
 
 Detection is strict, so that nothing is mounted by mistake:
 
@@ -72,10 +73,17 @@ The command line front end:
 ```
 > blkid /dev/dmsdio0/0 /dev/dmsdio0/0p1
 /dev/dmsdio0/0: PTTYPE="mbr" PTUUID="1a2b3c4d" PARTITIONS="1" BLOCK_SIZE="512" SIZE="15931539456"
-/dev/dmsdio0/0p1: TYPE="vfat" VERSION="FAT32" LABEL="SDCARD" UUID="CAFE-BABE" SIZE="15930490880" MOUNTABLE="no"
+/dev/dmsdio0/0p1: TYPE="vfat" VERSION="FAT32" LABEL="SDCARD" UUID="CAFE-BABE" SIZE="15930490880" MODULE="dmfatfs" MOUNTABLE="yes"
 ```
 
 See [services/blkid/README.md](services/blkid/README.md).
+
+### Automount
+
+The `automount` service mounts every block node dmdevfs reports that holds
+a mountable file system, at `/mnt/<volume label>` (or `/mnt/<node name>`
+when there is no label or it is taken), and unmounts it when the node goes
+away. See [services/automount/README.md](services/automount/README.md).
 
 ## API
 
@@ -174,6 +182,7 @@ dmblkid/
 ├── libs/
 │   └── dmpart/            # dmpart - MBR/GPT parser library (also used by dmdevfs)
 ├── services/
+│   ├── automount/         # automount service (mounts block nodes under /mnt)
 │   └── blkid/             # blkid command line application
 ├── src/
 │   ├── dmblkid.c          # dmblkid_probe(), result accessors
@@ -187,6 +196,7 @@ dmblkid/
 ├── tests/
 │   ├── CMakeLists.txt
 │   ├── dmblkid_test.c
+│   ├── automount_test.c   # automount service logic
 │   └── test_images.c      # Image builders
 ├── CMakeLists.txt
 ├── Makefile

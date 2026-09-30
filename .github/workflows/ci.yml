@@ -36,19 +36,23 @@ jobs:
           test -f build/dmf/blkid.dmf
           test -f build/dmf/dmpart.dmf
           test -f build/dmf/test_dmpart.dmf
+          test -f build/dmf/automount.dmf
+          test -f build/dmf/test_automount.dmf
           echo "Module files present"
 
       # dmblkid uses the 64-bit file API (Dmod_FileSeek/_FileTell/_FileSize
       # 2.0, dmod#312). The dmod_loader in the 1.0.4 image predates it, so
       # the tests run in one built from the same dmod develop the module
-      # is built against.
+      # is built against. Cloned into a fresh directory: the image already
+      # has a /tmp/dmod of its own.
       - name: Build dmod_loader from dmod develop
         run: |
-          git clone --depth 1 -b develop https://github.com/choco-technologies/dmod.git /tmp/dmod
-          cmake -S /tmp/dmod -B /tmp/dmod/build -DDMOD_MODE=DMOD_SYSTEM \
+          DMOD_SRC=$(mktemp -d)
+          git clone --depth 1 -b develop https://github.com/choco-technologies/dmod.git "$DMOD_SRC"
+          cmake -S "$DMOD_SRC" -B "$DMOD_SRC/build" -DDMOD_MODE=DMOD_SYSTEM \
             -DDMOD_BUILD_EXAMPLES=ON -DDMOD_BUILD_TESTS=OFF
-          cmake --build /tmp/dmod/build --target dmod_loader
-          echo "DMOD_LOADER=/tmp/dmod/build/examples/system/dmod_loader/dmod_loader" >> $GITHUB_ENV
+          cmake --build "$DMOD_SRC/build" --target dmod_loader
+          echo "DMOD_LOADER=$DMOD_SRC/build/examples/system/dmod_loader/dmod_loader" >> $GITHUB_ENV
 
       - name: Run tests with dmod_loader
         run: |
@@ -57,6 +61,8 @@ jobs:
           ${DMOD_LOADER} build/dmf/test_dmpart.dmf
           dmf-get install -d ${DMOD_DMF_DIR}/test_dmblkid-local.dmd -y
           ${DMOD_LOADER} build/dmf/test_dmblkid.dmf
+          dmf-get install -d ${DMOD_DMF_DIR}/test_automount-local.dmd -y
+          ${DMOD_LOADER} build/dmf/test_automount.dmf
 
   build-targets:
     name: Build for ${{ matrix.arch }}
@@ -87,3 +93,4 @@ jobs:
           test -f dmf/dmblkid.dmf
           test -f dmf/blkid.dmf
           test -f dmf/dmpart.dmf
+          test -f dmf/automount.dmf

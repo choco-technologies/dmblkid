@@ -1,0 +1,25 @@
+# DMOD Resource File for automount
+# This file specifies where resources should be installed
+
+# === Core Module ===
+dmf=./${module}.dmf => ${destination}/${module}.dmf [origin=${dmf_dir}/${module}.dmf]
+dmfc=./${module}.dmfc => ${destination}/${module}.dmfc [origin=${build_dir}/dmfc/${module}.dmfc]
+dmd=./${module}.dmd => ${destination}/${module}.dmd [origin=${dmf_dir}/${module}.dmd]
+version=./${module}_version.txt => ${destination}/${module}_version.txt [origin=${dmf_dir}/${module}_version.txt]
+
+# === Documentation ===
+# NOTE: ${repo_dir} is the top-level repo root (automount is built through
+# add_subdirectory() from dmblkid's CMakeLists.txt), so paths are relative to
+# the repo root, not to services/automount.
+readme=./README.md => ${destination}/${module}/README.md [origin=${repo_dir}/services/automount/README.md]
+
+# === Configuration Files ===
+# automount@.ini unit template + automount.rules device rule, ready to drop into
+# libsystemd's units/rules directories - see README.md
+configs=./configs => ${destination}/${module}/configs [origin=${repo_dir}/services/automount/configs]
+
+# === License ===
+license=./LICENSE => ${destination}/${module}/LICENSE [origin=${repo_dir}/LICENSE]
+
+# Adding itself
+dmr=./${module}.dmr => ${destination}/${module}/${module}.dmr [origin=${repo_dir}/services/automount/${module}.dmr]

@@ -171,7 +171,7 @@ static int exfat_set_version(dmblkid_t* result, const exfat_boot_t* b)
 static int exfat_describe(const dmblkid_source_t* source, const exfat_boot_t* b, dmblkid_t* result)
 {
     /* No DMOD filesystem module mounts exFAT yet. */
-    dmblkid_set_filesystem(result, "exfat", NULL, false);
+    dmblkid_set_filesystem(result, "exfat", "dmfatfs", true);
     int ret = exfat_set_version(result, b);
     ret = (ret < 0) ? ret : dmblkid_set_serial(&result->uuid, b->serial);
     ret = (ret < 0) ? ret : exfat_find_label(source, b, &result->label);

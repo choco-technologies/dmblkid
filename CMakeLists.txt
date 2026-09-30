@@ -91,5 +91,8 @@ add_subdirectory(libs/dmpart)
 # blkid - command line front end
 add_subdirectory(services/blkid)
 
+# automount - mounts block nodes as dmdevfs reports them
+add_subdirectory(services/automount)
+
 enable_testing()
 add_subdirectory(tests)
