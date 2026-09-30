@@ -1,20 +1,21 @@
 #define DMOD_ENABLE_REGISTRATION ON
 #include "dmod_test.h"
 #include "dmblkid.h"
-#include "automount.h"
+#include "libautomount_core.h"
 #include "test_images.h"
 #include <errno.h>
 #include <string.h>
 
 /*
- * The automount service logic (services/automount/src/automount.c) on image
- * files probed by the real dmblkid, with a fake file system tree: every
+ * The libautomount mount logic (libs/libautomount/src/libautomount_core.c)
+ * on image files probed by the real dmblkid, with fakes of the
+ * libautomount_os_*() functions standing for a file system tree: every
  * directory created and every mount point is recorded (a mount point exists
  * while mounted, like in dmvfs), so the steps can check where a volume ended
  * up and that nothing is left behind.
  */
 
-#define IMAGE_PATH      "automount_test.img"
+#define IMAGE_PATH      "libautomount_test.img"
 #define BASE_DIR        "/mnt"
 #define NODE_NAME       "dmsdio0_0p1"
 #define MAX_PATHS       8
@@ -61,7 +62,7 @@ static void copy_text(char* target, const char* text)
     target[MAX_PATH_LENGTH - 1] = '\0';
 }
 
-static int fake_mount(const char* module, const char* dir, const char* node)
+int libautomount_os_mount(const char* module, const char* dir, const char* node)
 {
     g_tree.mount_calls++;
     if (g_tree.mount_result == 0)
@@ -74,7 +75,7 @@ static int fake_mount(const char* module, const char* dir, const char* node)
     return g_tree.mount_result;
 }
 
-static int fake_unmount(const char* dir)
+int libautomount_os_unmount(const char* dir)
 {
     g_tree.unmount_calls++;
     if (strcmp(g_tree.mounted_dir, dir) != 0)
@@ -86,27 +87,14 @@ static int fake_unmount(const char* dir)
     return 0;
 }
 
-static bool fake_exists(const char* path)       { return find_dir(path) >= 0; }
-static int  fake_make_dir(const char* path)     { add_dir(path); return 0; }
-static void fake_lock(void)                     { g_tree.locked++; }
-static void fake_unlock(void)                   { g_tree.locked--; }
+bool libautomount_os_exists(const char* path)   { return find_dir(path) >= 0; }
+int  libautomount_os_make_dir(const char* path) { add_dir(path); return 0; }
+void libautomount_os_lock(void)                 { g_tree.locked++; }
+void libautomount_os_unlock(void)               { g_tree.locked--; }
 
-static automount_ops_t make_ops(void)
+static libautomount_t* create(int* error)
 {
-    automount_ops_t ops;
-    ops.mount      = fake_mount;
-    ops.unmount    = fake_unmount;
-    ops.exists     = fake_exists;
-    ops.make_dir   = fake_make_dir;
-    ops.lock       = fake_lock;
-    ops.unlock     = fake_unlock;
-    return ops;
-}
-
-static automount_t* create(int* error)
-{
-    automount_ops_t ops = make_ops();
-    return automount_create(&ops, IMAGE_PATH, NODE_NAME, BASE_DIR, error);
+    return libautomount_core_mount(IMAGE_PATH, NODE_NAME, BASE_DIR, error);
 }
 
 void dmod_test_setup(void)
@@ -121,7 +109,7 @@ void dmod_test_teardown(void)
 
 static bool name_is(const char* label, const char* expected)
 {
-    char* name = automount_label_to_name(label);
+    char* name = libautomount_core_label_to_name(label);
     bool  ok   = (expected == NULL) ? name == NULL : (name != NULL && strcmp(name, expected) == 0);
     if (name != NULL)
     {
@@ -147,29 +135,29 @@ DMOD_TEST_STEP(mounts_at_label)
 {
     int error = 1;
     DMOD_TEST_EXPECT_TRUE(test_build_fat32(IMAGE_PATH));
-    automount_t* mount = create(&error);
+    libautomount_t* mount = create(&error);
     DMOD_TEST_EXPECT_NOT_NULL(mount);
     DMOD_TEST_EXPECT_EQ(error, 0);
-    DMOD_TEST_EXPECT_EQ(strcmp(automount_get_dir(mount), BASE_DIR "/BOOT"), 0);
+    DMOD_TEST_EXPECT_EQ(strcmp(libautomount_core_get_dir(mount), BASE_DIR "/BOOT"), 0);
     DMOD_TEST_EXPECT_EQ(strcmp(g_tree.mounted_dir, BASE_DIR "/BOOT"), 0);
     DMOD_TEST_EXPECT_EQ(strcmp(g_tree.mounted_module, "dmfatfs"), 0);
     DMOD_TEST_EXPECT_EQ(strcmp(g_tree.mounted_node, IMAGE_PATH), 0);
-    DMOD_TEST_EXPECT_TRUE(fake_exists(BASE_DIR));
-    DMOD_TEST_EXPECT_TRUE(fake_exists(BASE_DIR "/BOOT"));
-    automount_destroy(mount);
+    DMOD_TEST_EXPECT_TRUE(libautomount_os_exists(BASE_DIR));
+    DMOD_TEST_EXPECT_TRUE(libautomount_os_exists(BASE_DIR "/BOOT"));
+    libautomount_core_unmount(mount);
     DMOD_TEST_EXPECT_EQ(g_tree.unmount_calls, 1);
     DMOD_TEST_EXPECT_EQ(g_tree.mounted_dir[0], '\0');
-    DMOD_TEST_EXPECT_FALSE(fake_exists(BASE_DIR "/BOOT"));
+    DMOD_TEST_EXPECT_FALSE(libautomount_os_exists(BASE_DIR "/BOOT"));
     DMOD_TEST_EXPECT_EQ(g_tree.locked, 0);
 }
 
 DMOD_TEST_STEP(utf8_label)
 {
     DMOD_TEST_EXPECT_TRUE(test_build_exfat(IMAGE_PATH, true));
-    automount_t* mount = create(NULL);
+    libautomount_t* mount = create(NULL);
     DMOD_TEST_EXPECT_NOT_NULL(mount);
     DMOD_TEST_EXPECT_EQ(strcmp(g_tree.mounted_dir, BASE_DIR "/Karta_\xC5\x82"), 0);
-    automount_destroy(mount);
+    libautomount_core_unmount(mount);
 }
 
 DMOD_TEST_STEP(taken_label_falls_back_to_node_name)
@@ -177,14 +165,14 @@ DMOD_TEST_STEP(taken_label_falls_back_to_node_name)
     DMOD_TEST_EXPECT_TRUE(test_build_fat32(IMAGE_PATH));
     add_dir(BASE_DIR);
     add_dir(BASE_DIR "/BOOT");
-    automount_t* mount = create(NULL);
+    libautomount_t* mount = create(NULL);
     DMOD_TEST_EXPECT_NOT_NULL(mount);
-    DMOD_TEST_EXPECT_EQ(strcmp(automount_get_dir(mount), BASE_DIR "/" NODE_NAME), 0);
+    DMOD_TEST_EXPECT_EQ(strcmp(libautomount_core_get_dir(mount), BASE_DIR "/" NODE_NAME), 0);
     DMOD_TEST_EXPECT_EQ(strcmp(g_tree.mounted_dir, BASE_DIR "/" NODE_NAME), 0);
-    automount_destroy(mount);
+    libautomount_core_unmount(mount);
     /* Only its own directory is removed */
-    DMOD_TEST_EXPECT_TRUE(fake_exists(BASE_DIR "/BOOT"));
-    DMOD_TEST_EXPECT_FALSE(fake_exists(BASE_DIR "/" NODE_NAME));
+    DMOD_TEST_EXPECT_TRUE(libautomount_os_exists(BASE_DIR "/BOOT"));
+    DMOD_TEST_EXPECT_FALSE(libautomount_os_exists(BASE_DIR "/" NODE_NAME));
 }
 
 DMOD_TEST_STEP(everything_taken)
@@ -206,7 +194,7 @@ DMOD_TEST_STEP(partition_table_is_left_to_the_partitions)
     DMOD_TEST_EXPECT_NULL(create(&error));
     DMOD_TEST_EXPECT_EQ(error, 0);
     DMOD_TEST_EXPECT_EQ(g_tree.mount_calls, 0);
-    DMOD_TEST_EXPECT_FALSE(fake_exists(BASE_DIR));
+    DMOD_TEST_EXPECT_FALSE(libautomount_os_exists(BASE_DIR));
 }
 
 DMOD_TEST_STEP(unknown_contents_are_not_mounted)
@@ -244,22 +232,20 @@ DMOD_TEST_STEP(mount_failure_cleans_up)
     DMOD_TEST_EXPECT_EQ(error, -EIO);
     /* Not a naming problem - the node name is not tried as well */
     DMOD_TEST_EXPECT_EQ(g_tree.mount_calls, 1);
-    DMOD_TEST_EXPECT_FALSE(fake_exists(BASE_DIR "/DATA16"));
+    DMOD_TEST_EXPECT_FALSE(libautomount_os_exists(BASE_DIR "/DATA16"));
     DMOD_TEST_EXPECT_EQ(g_tree.locked, 0);
 }
 
 DMOD_TEST_STEP(invalid_arguments)
 {
-    int             error = 0;
-    automount_ops_t ops   = make_ops();
+    int error = 0;
     DMOD_TEST_EXPECT_TRUE(test_build_fat32(IMAGE_PATH));
-    DMOD_TEST_EXPECT_NULL(automount_create(&ops, IMAGE_PATH, "a/b", BASE_DIR, &error));
+    DMOD_TEST_EXPECT_NULL(libautomount_core_mount(IMAGE_PATH, "a/b", BASE_DIR, &error));
     DMOD_TEST_EXPECT_EQ(error, -EINVAL);
-    DMOD_TEST_EXPECT_NULL(automount_create(&ops, IMAGE_PATH, "", BASE_DIR, &error));
-    DMOD_TEST_EXPECT_NULL(automount_create(NULL, IMAGE_PATH, NODE_NAME, BASE_DIR, &error));
-    ops.lock = NULL;
-    DMOD_TEST_EXPECT_NULL(automount_create(&ops, IMAGE_PATH, NODE_NAME, BASE_DIR, &error));
+    DMOD_TEST_EXPECT_NULL(libautomount_core_mount(IMAGE_PATH, "", BASE_DIR, &error));
+    DMOD_TEST_EXPECT_NULL(libautomount_core_mount(NULL, NODE_NAME, BASE_DIR, &error));
+    DMOD_TEST_EXPECT_NULL(libautomount_core_mount(IMAGE_PATH, NODE_NAME, NULL, &error));
     DMOD_TEST_EXPECT_EQ(g_tree.mount_calls, 0);
-    automount_destroy(NULL);
-    DMOD_TEST_EXPECT_NULL(automount_get_dir(NULL));
+    libautomount_core_unmount(NULL);
+    DMOD_TEST_EXPECT_NULL(libautomount_core_get_dir(NULL));
 }

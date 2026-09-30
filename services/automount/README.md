@@ -6,6 +6,10 @@ file system that a DMOD module can mount from a node - FAT and exFAT through
 [dmfatfs](https://github.com/choco-technologies/dmfatfs) today - it is
 mounted under `/mnt` for as long as the node exists.
 
+The service is only a `main()`: the work is done by
+[libautomount](../../libs/libautomount/README.md), which is loaded once for
+all instances.
+
 ```
 > ls /mnt
 bootfs  dmsdio0_0p2
@@ -37,10 +41,10 @@ word - control characters, space, `/`, `\`, `;`, `|`, `&`, `<`, `>`, quotes,
 `` ` ``, `$`, `*`, `?` - becomes `_` (`My Card` -> `/mnt/My_Card`). A label
 that is only such characters, `.` or `..` counts as no label.
 
-Picking the directory and mounting there happen under a lock shared by all
-instances, so two volumes never end up at the same path. Only `/mnt` itself
-is created: dmvfs needs no directory under a mount point, so an unmounted
-volume leaves nothing behind.
+Picking the directory and mounting there happen under a lock in
+libautomount, shared by all instances, so two volumes never end up at the
+same path. Only `/mnt` itself is created: dmvfs needs no directory under a
+mount point, so an unmounted volume leaves nothing behind.
 
 A whole medium and its partition are never both mounted: a medium with a
 partition table is left to its partitions, and dmfatfs refuses a node that
@@ -48,7 +52,7 @@ overlaps one already in use anyway.
 
 ## Stopping
 
-automount registers a semaphore with `libsystemd_set_stop_semaphore()`: a
+libautomount registers a semaphore with `libsystemd_set_stop_semaphore()`: a
 stop wakes it, it unmounts and returns from `main()`. The unit sets
 `stop_timeout_ms=5000` for the unmount to write back what the file system
 still caches; if the instance has to be killed, a process exit callback
@@ -78,7 +82,8 @@ automount service=automount@.ini
 automount rules=automount.rules
 ```
 
-The file system modules (e.g. `dmfatfs`) must be available to be loaded.
+libautomount and dmblkid come in as dependencies of the module; the file
+system modules (e.g. `dmfatfs`) must be available to be loaded.
 
 ## Usage
 

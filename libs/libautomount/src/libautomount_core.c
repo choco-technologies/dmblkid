@@ -1,20 +1,19 @@
 /**
- * @file automount.c
- * @brief Mount logic of the automount service
+ * @file libautomount_core.c
+ * @brief Mount logic of libautomount
  */
 #include "dmod.h"
 #include "dmblkid.h"
-#include "automount.h"
+#include "libautomount_core.h"
 #include <errno.h>
 #include <string.h>
 
-#define AUTOMOUNT_MAGIC     0x41554D54u     /* 'AUMT' */
+#define LIBAUTOMOUNT_MAGIC  0x41554D54u     /* 'AUMT' */
 
-struct automount
+struct libautomount
 {
-    uint32_t        magic;
-    automount_ops_t ops;
-    char*           dir;        /**< Mount directory, owned */
+    uint32_t    magic;
+    char*       dir;        /**< Mount directory, owned */
 };
 
 /* What was found on the node: the module to mount it with and its label. */
@@ -24,9 +23,9 @@ typedef struct
     char*   label;      /**< NULL if the volume has none */
 } volume_t;
 
-static bool is_valid(const automount_t* mount)
+static bool is_valid(const libautomount_t* mount)
 {
-    return mount != NULL && mount->magic == AUTOMOUNT_MAGIC;
+    return mount != NULL && mount->magic == LIBAUTOMOUNT_MAGIC;
 }
 
 static bool is_unsafe(unsigned char c)
@@ -35,7 +34,7 @@ static bool is_unsafe(unsigned char c)
     return c < 0x20u || c == 0x7Fu || strchr(unsafe, c) != NULL;
 }
 
-char* automount_label_to_name(const char* label)
+char* libautomount_core_label_to_name(const char* label)
 {
     if (label == NULL || strcmp(label, ".") == 0 || strcmp(label, "..") == 0)
     {
@@ -57,7 +56,7 @@ char* automount_label_to_name(const char* label)
     return name;
 }
 
-const char* automount_get_dir(const automount_t* mount)
+const char* libautomount_core_get_dir(const libautomount_t* mount)
 {
     return is_valid(mount) ? mount->dir : NULL;
 }
@@ -88,7 +87,7 @@ static int probe_volume(const char* node, volume_t* volume)
     {
         const char* label = dmblkid_get_label(result);
         volume->module = Dmod_StrDup(dmblkid_get_module(result));
-        volume->label  = (label != NULL) ? automount_label_to_name(label) : NULL;
+        volume->label  = (label != NULL) ? libautomount_core_label_to_name(label) : NULL;
         ret = (volume->module != NULL && (label == NULL || volume->label != NULL)) ? 1 : -ENOMEM;
     }
     else
@@ -115,15 +114,14 @@ static char* join_path(const char* base_dir, const char* name)
 }
 
 /* Mount at <base_dir>/<name> - or -EBUSY if it is taken. Under the lock. */
-static int mount_at(const automount_ops_t* ops, const volume_t* volume, const char* node,
-                    const char* base_dir, const char* name, char** dir)
+static int mount_at(const volume_t* volume, const char* node, const char* base_dir, const char* name, char** dir)
 {
     *dir = join_path(base_dir, name);
     if (*dir == NULL)
     {
         return -ENOMEM;
     }
-    int ret = ops->exists(*dir) ? -EBUSY : ops->mount(volume->module, *dir, node);
+    int ret = libautomount_os_exists(*dir) ? -EBUSY : libautomount_os_mount(volume->module, *dir, node);
     if (ret != 0)
     {
         Dmod_Free(*dir);
@@ -133,48 +131,44 @@ static int mount_at(const automount_ops_t* ops, const volume_t* volume, const ch
 }
 
 /* The label directory first, then the node name if the label is missing or taken. */
-static int mount_volume(const automount_ops_t* ops, const volume_t* volume, const char* node,
-                        const char* name, const char* base_dir, char** dir)
+static int mount_volume(const volume_t* volume, const char* node, const char* name, const char* base_dir, char** dir)
 {
-    ops->lock();
-    int ret = ops->exists(base_dir) ? 0 : ops->make_dir(base_dir);
+    libautomount_os_lock();
+    int ret = libautomount_os_exists(base_dir) ? 0 : libautomount_os_make_dir(base_dir);
     if (ret == 0)
     {
-        ret = (volume->label != NULL) ? mount_at(ops, volume, node, base_dir, volume->label, dir) : -EBUSY;
+        ret = (volume->label != NULL) ? mount_at(volume, node, base_dir, volume->label, dir) : -EBUSY;
         if (ret == -EBUSY)
         {
-            ret = mount_at(ops, volume, node, base_dir, name, dir);
+            ret = mount_at(volume, node, base_dir, name, dir);
         }
     }
-    ops->unlock();
+    libautomount_os_unlock();
     return ret;
 }
 
-static bool valid_arguments(const automount_ops_t* ops, const char* node, const char* name, const char* base_dir)
+static bool valid_arguments(const char* node, const char* name, const char* base_dir)
 {
-    return ops != NULL && ops->mount != NULL && ops->unmount != NULL && ops->exists != NULL &&
-           ops->make_dir != NULL && ops->lock != NULL && ops->unlock != NULL &&
-           node != NULL && name != NULL && base_dir != NULL && name[0] != '\0' && strchr(name, '/') == NULL;
+    return node != NULL && name != NULL && base_dir != NULL && name[0] != '\0' && strchr(name, '/') == NULL;
 }
 
-static automount_t* create_mount(const automount_ops_t* ops, char* dir)
+static libautomount_t* create_mount(char* dir)
 {
-    automount_t* mount = Dmod_Malloc(sizeof(automount_t));
+    libautomount_t* mount = Dmod_Malloc(sizeof(libautomount_t));
     if (mount == NULL)
     {
         return NULL;
     }
-    mount->magic = AUTOMOUNT_MAGIC;
-    mount->ops   = *ops;
+    mount->magic = LIBAUTOMOUNT_MAGIC;
     mount->dir   = dir;
     return mount;
 }
 
-static void release_dir(const automount_ops_t* ops, char* dir)
+static void release_dir(char* dir)
 {
-    ops->lock();
-    int ret = ops->unmount(dir);
-    ops->unlock();
+    libautomount_os_lock();
+    int ret = libautomount_os_unmount(dir);
+    libautomount_os_unlock();
     if (ret != 0)
     {
         DMOD_LOG_ERROR("automount: cannot unmount %s (%d)\n", dir, ret);
@@ -182,14 +176,13 @@ static void release_dir(const automount_ops_t* ops, char* dir)
     Dmod_Free(dir);
 }
 
-automount_t* automount_create(const automount_ops_t* ops, const char* node, const char* name,
-                              const char* base_dir, int* error)
+libautomount_t* libautomount_core_mount(const char* node, const char* name, const char* base_dir, int* error)
 {
     int      unused;
     int*     status = (error != NULL) ? error : &unused;
     volume_t volume = { 0 };
     char*    dir    = NULL;
-    if (!valid_arguments(ops, node, name, base_dir))
+    if (!valid_arguments(node, name, base_dir))
     {
         *status = -EINVAL;
         return NULL;
@@ -197,23 +190,23 @@ automount_t* automount_create(const automount_ops_t* ops, const char* node, cons
     *status = probe_volume(node, &volume);
     if (*status == 1)
     {
-        *status = mount_volume(ops, &volume, node, name, base_dir, &dir);
+        *status = mount_volume(&volume, node, name, base_dir, &dir);
         if (*status == 0)
         {
             DMOD_LOG_INFO("automount: %s mounted at %s (%s)\n", node, dir, volume.module);
         }
     }
     free_volume(&volume);
-    automount_t* mount = (dir != NULL) ? create_mount(ops, dir) : NULL;
+    libautomount_t* mount = (dir != NULL) ? create_mount(dir) : NULL;
     if (dir != NULL && mount == NULL)
     {
-        release_dir(ops, dir);
+        release_dir(dir);
         *status = -ENOMEM;
     }
     return mount;
 }
 
-void automount_destroy(automount_t* mount)
+void libautomount_core_unmount(libautomount_t* mount)
 {
     if (!is_valid(mount))
     {
@@ -221,6 +214,6 @@ void automount_destroy(automount_t* mount)
     }
     mount->magic = 0;
     DMOD_LOG_INFO("automount: unmounting %s\n", mount->dir);
-    release_dir(&mount->ops, mount->dir);
+    release_dir(mount->dir);
     Dmod_Free(mount);
 }

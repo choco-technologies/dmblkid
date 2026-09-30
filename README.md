@@ -83,7 +83,9 @@ See [services/blkid/README.md](services/blkid/README.md).
 The `automount` service mounts every block node dmdevfs reports that holds
 a mountable file system, at `/mnt/<volume label>` (or `/mnt/<node name>`
 when there is no label or it is taken), and unmounts it when the node goes
-away. See [services/automount/README.md](services/automount/README.md).
+away. It is a thin `main()` around [libautomount](libs/libautomount/README.md),
+which does the work once for all instances. See
+[services/automount/README.md](services/automount/README.md).
 
 ## API
 
@@ -180,9 +182,10 @@ dmblkid/
 ├── include/
 │   └── dmblkid.h          # Public API
 ├── libs/
-│   └── dmpart/            # dmpart - MBR/GPT parser library (also used by dmdevfs)
+│   ├── dmpart/            # dmpart - MBR/GPT parser library (also used by dmdevfs)
+│   └── libautomount/      # libautomount - the automount logic, loaded once
 ├── services/
-│   ├── automount/         # automount service (mounts block nodes under /mnt)
+│   ├── automount/         # automount service (per node, around libautomount)
 │   └── blkid/             # blkid command line application
 ├── src/
 │   ├── dmblkid.c          # dmblkid_probe(), result accessors
@@ -196,7 +199,7 @@ dmblkid/
 ├── tests/
 │   ├── CMakeLists.txt
 │   ├── dmblkid_test.c
-│   ├── automount_test.c   # automount service logic
+│   ├── libautomount_test.c # libautomount mount logic
 │   └── test_images.c      # Image builders
 ├── CMakeLists.txt
 ├── Makefile

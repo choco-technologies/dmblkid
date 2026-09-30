@@ -37,7 +37,8 @@ jobs:
           test -f build/dmf/dmpart.dmf
           test -f build/dmf/test_dmpart.dmf
           test -f build/dmf/automount.dmf
-          test -f build/dmf/test_automount.dmf
+          test -f build/dmf/libautomount.dmf
+          test -f build/dmf/test_libautomount.dmf
           echo "Module files present"
 
       # dmblkid uses the 64-bit file API (Dmod_FileSeek/_FileTell/_FileSize
@@ -61,8 +62,8 @@ jobs:
           ${DMOD_LOADER} build/dmf/test_dmpart.dmf
           dmf-get install -d ${DMOD_DMF_DIR}/test_dmblkid-local.dmd -y
           ${DMOD_LOADER} build/dmf/test_dmblkid.dmf
-          dmf-get install -d ${DMOD_DMF_DIR}/test_automount-local.dmd -y
-          ${DMOD_LOADER} build/dmf/test_automount.dmf
+          dmf-get install -d ${DMOD_DMF_DIR}/test_libautomount-local.dmd -y
+          ${DMOD_LOADER} build/dmf/test_libautomount.dmf
 
   build-targets:
     name: Build for ${{ matrix.arch }}
@@ -94,3 +95,4 @@ jobs:
           test -f dmf/blkid.dmf
           test -f dmf/dmpart.dmf
           test -f dmf/automount.dmf
+          test -f dmf/libautomount.dmf

@@ -36,19 +36,19 @@ endfunction()
 
 dmblkid_register_test(test_dmblkid)
 
-# test_automount - the automount service logic. Compiles the logic's source
-# (the unit under test) into the test; the service's main.c, which only adds
-# dmvfs, the file API and libsystemd around it, cannot run on the host loader
-# (no dmvfs there).
-set(DMOD_MODULE_NAME        test_automount)
+# test_libautomount - the libautomount mount logic. Compiles the logic's
+# source (the unit under test) into the test and provides fakes of the
+# libautomount_os_*() functions: the library itself cannot be loaded by the
+# host loader (no dmvfs there).
+set(DMOD_MODULE_NAME        test_libautomount)
 dmod_add_test(${DMOD_MODULE_NAME} ${DMOD_MODULE_VERSION}
-    automount_test.c
+    libautomount_test.c
     test_images.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../services/automount/src/automount.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../libs/libautomount/src/libautomount_core.c
 )
 target_include_directories(${DMOD_MODULE_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../services/automount/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../libs/libautomount/src
 )
 target_link_libraries(${DMOD_MODULE_NAME} dmblkid_if)
 dmblkid_register_test(${DMOD_MODULE_NAME})
