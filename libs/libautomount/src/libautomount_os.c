@@ -5,17 +5,11 @@
  * The host tests replace this file with fakes (there is no dmvfs there).
  */
 #include "dmod.h"
+#include "dmvfs.h"
 #include "libautomount_core.h"
 #include <errno.h>
 
 #define DIR_MODE    0755
-
-/*
- * dmvfs is built into the firmware (it is not a module), its API is
- * resolved from the system like the rest of the built-in API.
- */
-DMOD_BUILTIN_API( dmvfs, 1.0, bool, _mount_fs, (const char* fs_name, const char* mount_point, const char* config) );
-DMOD_BUILTIN_API( dmvfs, 1.0, bool, _unmount_fs, (const char* mount_point) );
 
 /* One per library - shared by every automount service using it. */
 static void* g_lock;

@@ -27,7 +27,11 @@ target_include_directories(${DMOD_MODULE_NAME}_if INTERFACE
 # dmblkid - local sibling (repository root): headers from its _if target
 target_link_libraries(${DMOD_MODULE_NAME} dmblkid_if)
 
+# dmvfs: dmvfs_mount_fs()/dmvfs_unmount_fs() - dmvfs is built into the
+# firmware, only its header is needed (dmvfs.h includes dmfsi.h, hence dmfsi)
 dmod_link_modules(${DMOD_MODULE_NAME}
+    dmfsi
     dmosi
+    dmvfs
     libsystemd
 )
