@@ -91,5 +91,11 @@ add_subdirectory(libs/dmpart)
 # blkid - command line front end
 add_subdirectory(services/blkid)
 
+# libautomount - mounting block nodes (everything automount does, loaded once)
+add_subdirectory(libs/libautomount)
+
+# automount - the per-node service around libautomount
+add_subdirectory(services/automount)
+
 enable_testing()
 add_subdirectory(tests)

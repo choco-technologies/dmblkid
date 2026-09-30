@@ -8,6 +8,14 @@ dmblkid https://github.com/choco-technologies/dmblkid/releases/download/v<versio
 # with dmblkid
 blkid https://github.com/choco-technologies/dmblkid/releases/download/v<version>/blkid-v<version>-<arch_name>.zip
 
+# automount - mount service for block nodes (services/automount), built and
+# released together with dmblkid
+automount https://github.com/choco-technologies/dmblkid/releases/download/v<version>/automount-v<version>-<arch_name>.zip
+
+# libautomount - the library automount runs on (libs/libautomount), built and
+# released together with dmblkid
+libautomount https://github.com/choco-technologies/dmblkid/releases/download/v<version>/libautomount-v<version>-<arch_name>.zip
+
 # dmpart - partition table parser library (libs/dmpart), used by dmblkid and
 # dmdevfs; built and released together with dmblkid
 dmpart https://github.com/choco-technologies/dmblkid/releases/download/v<version>/dmpart-v<version>-<arch_name>.zip

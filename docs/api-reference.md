@@ -123,9 +123,9 @@ const char* dmblkid_get_uuid(const dmblkid_t* result);
 const char* dmblkid_get_module(const dmblkid_t* result);
 ```
 
-The DMOD filesystem module that handles the type: `"dmffs"` for dmffs.
-`NULL` for types the ecosystem has no module for yet (FAT, exFAT), for
-partition tables and for unknown contents.
+The DMOD filesystem module that handles the type: `"dmfatfs"` for FAT and
+exFAT, `"dmffs"` for dmffs. `NULL` for partition tables and for unknown
+contents.
 
 ### `dmblkid_is_mountable`
 
@@ -133,9 +133,9 @@ partition tables and for unknown contents.
 bool dmblkid_is_mountable(const dmblkid_t* result);
 ```
 
-`true` only if `dmblkid_get_module()` can mount the node itself. `false` for
-dmffs: its module mounts memory-mapped flash (`flash_addr`/`flash_size`), not
-a node.
+`true` only if `dmblkid_get_module()` can mount the node itself - FAT and
+exFAT (`dmvfs_mount_fs("dmfatfs", <dir>, <node>)`). `false` for dmffs: its
+module mounts memory-mapped flash (`flash_addr`/`flash_size`), not a node.
 
 ### `dmblkid_get_size`
 

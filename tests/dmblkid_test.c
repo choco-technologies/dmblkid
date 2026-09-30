@@ -57,6 +57,13 @@ static void expect_unknown(void)
     DMOD_TEST_EXPECT_FALSE(dmblkid_is_mountable(g_result));
 }
 
+/* FAT and exFAT are mounted by dmfatfs, straight from the node. */
+static void expect_dmfatfs(void)
+{
+    DMOD_TEST_EXPECT_TRUE(str_is(dmblkid_get_module(g_result), "dmfatfs"));
+    DMOD_TEST_EXPECT_TRUE(dmblkid_is_mountable(g_result));
+}
+
 /* ---- filesystems ---- */
 
 DMOD_TEST_STEP(fat12_floppy_with_mbr_like_boot_code)
@@ -65,8 +72,7 @@ DMOD_TEST_STEP(fat12_floppy_with_mbr_like_boot_code)
     DMOD_TEST_EXPECT_TRUE(probe());
     expect_filesystem("vfat", "FAT12", "FLOPPY", "1234-ABCD");
     DMOD_TEST_EXPECT_EQ(dmblkid_get_size(g_result), 2880ull * 512u);
-    DMOD_TEST_EXPECT_NULL(dmblkid_get_module(g_result));
-    DMOD_TEST_EXPECT_FALSE(dmblkid_is_mountable(g_result));
+    expect_dmfatfs();
 }
 
 DMOD_TEST_STEP(fat16_label_from_bpb)
@@ -74,6 +80,7 @@ DMOD_TEST_STEP(fat16_label_from_bpb)
     DMOD_TEST_EXPECT_TRUE(test_build_fat16(IMAGE_PATH));
     DMOD_TEST_EXPECT_TRUE(probe());
     expect_filesystem("vfat", "FAT16", "DATA16", "0BAD-F00D");
+    expect_dmfatfs();
 }
 
 DMOD_TEST_STEP(fat32_label_from_root_directory)
@@ -81,6 +88,7 @@ DMOD_TEST_STEP(fat32_label_from_root_directory)
     DMOD_TEST_EXPECT_TRUE(test_build_fat32(IMAGE_PATH));
     DMOD_TEST_EXPECT_TRUE(probe());
     expect_filesystem("vfat", "FAT32", "BOOT", "CAFE-BABE");
+    expect_dmfatfs();
 }
 
 DMOD_TEST_STEP(exfat_above_4gib)
@@ -90,7 +98,7 @@ DMOD_TEST_STEP(exfat_above_4gib)
     /* The label lives in the cluster heap at 4.5 GiB. */
     expect_filesystem("exfat", "1.0", "Karta \xC5\x82", "5EED-0001");
     DMOD_TEST_EXPECT_EQ(dmblkid_get_size(g_result), 5ull * TEST_GIB);
-    DMOD_TEST_EXPECT_FALSE(dmblkid_is_mountable(g_result));
+    expect_dmfatfs();
 }
 
 DMOD_TEST_STEP(exfat_bad_boot_checksum)

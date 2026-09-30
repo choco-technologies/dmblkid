@@ -12,7 +12,7 @@ One line per node:
 ```
 > blkid /dev/dmsdio0/0 /dev/dmsdio0/0p1 /dev/dmsdio0/0p2
 /dev/dmsdio0/0: PTTYPE="mbr" PTUUID="1a2b3c4d" PARTITIONS="2" BLOCK_SIZE="512" SIZE="15931539456"
-/dev/dmsdio0/0p1: TYPE="vfat" VERSION="FAT32" LABEL="BOOT" UUID="CAFE-BABE" SIZE="268435456" MOUNTABLE="no"
+/dev/dmsdio0/0p1: TYPE="vfat" VERSION="FAT32" LABEL="BOOT" UUID="CAFE-BABE" SIZE="268435456" MODULE="dmfatfs" MOUNTABLE="yes"
 /dev/dmsdio0/0p2: SIZE="15662055424"
 ```
 
